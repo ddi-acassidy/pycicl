@@ -1,0 +1,25 @@
+[project]
+name = "pycicl"
+description = "Python Comprehensive Instrument Control Library"
+readme = "README.md"
+requires-python = ">3.8"
+license = {file = "LICENSE.MD"}
+
+dependencies = [
+    "PyVISA >= 1.11",
+    "PyVISA-py >= 0.5",
+    "parse >= 1.0"
+]
+
+[project.urls]
+repository = "https://github.com/ddi-acassidy/pycicl"
+
+[build-system]
+requires = [
+    "setuptools >= 35.0.2",
+    "setuptools_scm[toml] >= 3.4",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
