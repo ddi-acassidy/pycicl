@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
-import pycicl.oscilloscope as oscilloscope
+
+import pycicl.instrument as instrument
 import pycicl.scpi as scpi
 
 
-class RigolMSO5(scpi.SCPIInstrument, oscilloscope.Oscilloscope):
+class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
+    channel_count = 4
     class Measurement(scpi.SCPIChild):
         def __init__(self, parent: RigolMSO5, name: str, src):
             super().__init__(parent)
@@ -31,7 +33,7 @@ class RigolMSO5(scpi.SCPIInstrument, oscilloscope.Oscilloscope):
         min = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MINIMUM'), formatter=scpi.format_real, writable=False)
         avg = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('AVERAGE'), formatter=scpi.format_real, writable=False)
 
-    class Channel(scpi.SCPIChild, oscilloscope.Oscilloscope.Channel, ABC):
+    class Channel(scpi.SCPIChild, instrument.Oscilloscope.Channel, ABC):
         @staticmethod
         def _mk_channel(name):
             return lambda obj: name.format(obj.index)
@@ -51,7 +53,7 @@ class RigolMSO5(scpi.SCPIInstrument, oscilloscope.Oscilloscope):
         position = scpi.SCPIProperty(_mk_channel('CHANNEL{:d}:POSITION'), formatter=scpi.format_real)
 
         def __init__(self, parent: RigolMSO5, index: int):
-            super(oscilloscope.Oscilloscope.Channel).__init__(parent, index)
+            super(pycicl.instrument.Oscilloscope.Channel).__init__(parent, index)
             super().__init__(parent)
 
             measurements = [

@@ -74,6 +74,8 @@ format_str = SCPIFormatter()
 format_onoff = SCPIFormatter(parser=lambda v: v.upper() in ('ON', '1'), formatter=lambda v: 'ON' if v else 'OFF')
 format_int = SCPIFormatter('{:d}')
 format_real = SCPIFormatter('{:e}')
+format_float = SCPIFormatter('{:f}')
+
 
 
 class SCPIProperty:
