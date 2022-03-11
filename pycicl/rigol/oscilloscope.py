@@ -26,14 +26,14 @@ class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
 
         @staticmethod
         def _mk_statistic(statistic):
-            return lambda obj: ",".join((statistic, obj.name, *obj.src))
+            return lambda obj: ",".join((statistic, obj.name, *(str(s) for s in obj.src)))
 
         now = scpi.SCPIProperty('MEASURE:ITEM', suffix=lambda obj: ",".join((obj.name, *obj.src)), formatter=scpi.format_real, writable=False)
-        max = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MAXIMUM'), formatter=scpi.format_real, writable=False)
-        min = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MINIMUM'), formatter=scpi.format_real, writable=False)
-        avg = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('AVERAGE'), formatter=scpi.format_real, writable=False)
+        max = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MAX'), formatter=scpi.format_real, writable=False)
+        min = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MIN'), formatter=scpi.format_real, writable=False)
+        avg = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('AVER'), formatter=scpi.format_real, writable=False)
 
-    class Channel(scpi.SCPIChild, instrument.Oscilloscope.Channel, ABC):
+    class Channel(instrument.Oscilloscope.Channel, scpi.SCPIChild, ABC):
         @staticmethod
         def _mk_channel(name):
             return lambda obj: name.format(obj.index)
@@ -53,8 +53,8 @@ class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
         position = scpi.SCPIProperty(_mk_channel('CHANNEL{:d}:POSITION'), formatter=scpi.format_real)
 
         def __init__(self, parent: RigolMSO5, index: int):
-            super(pycicl.instrument.Oscilloscope.Channel).__init__(parent, index)
-            super().__init__(parent)
+            instrument.Oscilloscope.Channel.__init__(self, parent, index)
+            scpi.SCPIChild.__init__(self, parent)
 
             measurements = [
                 'VMAX', 'VMIN', 'VPP', 'VTOP', 'VBASE', 'VAMP', 'VAVG', 'VRMS', 'OVERSHOOT', 'PRESHOOT', 'MAREA', 'MPAREA', 'PERIOD', 'FREQUENCY', 'RTIME',
@@ -63,9 +63,12 @@ class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
             ]
 
             for name in measurements:
-                setattr(self, name.lower(), RigolMSO5.Measurement(parent, name, self.index))
+                setattr(self, name.lower(), RigolMSO5.Measurement(parent, name, (f'CHAN{self.index:d}',)))
 
     timebase = scpi.SCPIProperty('TIMEBASE:SCALE', formatter=scpi.format_real)
+    timebase_min = 1e-9
+    timebase_max = 1e3
+    timebase_divisions = 14
     statistics = scpi.SCPIProperty('MEASURE:STATISTIC:DISPLAY', formatter=scpi.format_onoff)
 
     def reset_statistics(self):
@@ -83,9 +86,13 @@ class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
     def measure_phase(self, channel_A, channel_B, rising_A=True, rising_B=True):
         fr_a = 'R' if rising_A else 'F'
         fr_b = 'R' if rising_B else 'F'
-        return RigolMSO5.Measurement(self, f'{fr_a}{fr_b}PHASE', (channel_A, channel_B))
+        return RigolMSO5.Measurement(self, f'{fr_a}{fr_b}PHASE', (f'CHAN{channel_A:d}', f'CHAN{channel_B:d}'))
 
     def measure_delay(self, channel_A, channel_B, rising_A=True, rising_B=True):
         fr_a = 'R' if rising_A else 'F'
         fr_b = 'R' if rising_B else 'F'
-        return RigolMSO5.Measurement(self, f'{fr_a}{fr_b}DELAY', (channel_A, channel_B))
+        return RigolMSO5.Measurement(self, f'{fr_a}{fr_b}DELAY', (f'CHAN{channel_A:d}', f'CHAN{channel_B:d}'))
+
+    def __init__(self, address, rm):
+        instrument.Oscilloscope.__init__(self)
+        scpi.SCPIInstrument.__init__(self, address, rm)

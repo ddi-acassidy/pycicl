@@ -41,7 +41,7 @@ class SCPIFormatter:
             return self.formatter(value)
         else:
             # formatter is a format string, so pass it through format()
-            return self.formatter.formatter(value)
+            return self.formatter.format(value)
 
     def parse(self, raw: str):
         """
@@ -162,7 +162,12 @@ class SCPIObject(ABC):
 
 class SCPIChild(SCPIObject, ABC):
     def __init__(self, parent: SCPIObject):
-        self.parent = parent
+        self._parent = parent
+
+    @property
+    def parent(self):
+        """The instrument this channel is a part of"""
+        return self._parent
 
     @property
     def resource(self):

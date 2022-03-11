@@ -58,20 +58,13 @@ class SiglentProperty:
         obj.resource.write(command)
 
 
-class SiglentSDG(scpi.SCPIInstrument, instrument.SigGen):
+class SiglentSDG(instrument.SigGen, scpi.SCPIInstrument):
+    channel_count = 2
+
     class Channel(scpi.SCPIChild, instrument.SigGen.Channel):
         @staticmethod
         def _mk_channel(name):
             return lambda obj: name.format(obj.index)
-
-        def get_bswv(self):
-            response = self.resource.query(f'C{self.index}:BSWV?').strip()
-            values = response.split(' ')[1]
-            split = values.split(',')
-            return dict(zip(split[0::2], split[1::2]))
-
-        def set_bswv(self, key, value):
-            self.resource.write(f'C{self.index}:BSWV {key}, {value}')
 
         _format_volt = scpi.SCPIFormatter('{:f}V')
         _format_hz = scpi.SCPIFormatter('{:f}HZ')
@@ -83,12 +76,16 @@ class SiglentSDG(scpi.SCPIInstrument, instrument.SigGen):
         phase = SiglentProperty(_mk_channel('C{:d}:BSWV'), 'PHSE', scpi.format_float)
         offset = SiglentProperty(_mk_channel('C{:d}:BSWV'), 'OFST', _format_volt)
         low = SiglentProperty(_mk_channel('C{:d}:BSWV'), 'LLEV', _format_volt)
-        high = SiglentProperty(_mk_channel('C{:d}:BSWV'), 'LLEV', _format_volt)
+        high = SiglentProperty(_mk_channel('C{:d}:BSWV'), 'HLEV', _format_volt)
 
         output = SiglentProperty(_mk_channel('C{:d}:OUTP'), None, scpi.format_onoff, offset=0)
         load = SiglentProperty(_mk_channel('C{:d}:OUTP'), 'LOAD', offset=1)
         invert = SiglentProperty(_mk_channel('C{:d}:OUTP'), 'PLRT', _format_inverted, offset=1)
 
         def __init__(self, parent: SiglentSDG, index: int):
-            super(instrument.SigGen.Channel).__init__(parent, index)
-            super().__init__(parent)
+            instrument.SigGen.Channel.__init__(self, parent, index)
+            scpi.SCPIChild.__init__(self, parent)
+
+    def __init__(self, address, rm):
+        instrument.SigGen.__init__(self)
+        scpi.SCPIInstrument.__init__(self, address, rm)

@@ -9,7 +9,7 @@ class Instrument(ABC):
     name: str = ""
 
 
-class MultiChannelInstrument(Instrument, ABC):
+class MultiChannelInstrument(Instrument):
     """
     An instrument with multiple channels
     """
@@ -36,7 +36,7 @@ class MultiChannelInstrument(Instrument, ABC):
 
     def __init__(self):
         # setup channels
-        self.channels = (self.Channel(self, i) for i in range(self.channel_count))
+        self.channels = (self.Channel(self, i+1) for i in range(self.channel_count))
 
         # setup ch1, ch2, etc. attributes for easy access
         for i, c in enumerate(self.channels, start=1):
@@ -47,7 +47,7 @@ class Oscilloscope(MultiChannelInstrument, ABC):
     pass
 
 
-class SigGen(MultiChannelInstrument, ABC):
+class SigGen(MultiChannelInstrument):
     class Channel(MultiChannelInstrument.Channel, ABC):
         frequency = None
         vpp = None
