@@ -11,12 +11,11 @@ from pycicl.siglent.siggen import SiglentSDG
 @click.command()
 @click.option('--siggen_id', '-g', prompt='DS1022 VISA ID', help='VISA ID of the DS1022 signal generator')
 @click.option('--scope_id', '-s', prompt='DS2302A VISA ID', help='VISA ID of the DS2302A oscilloscope')
-@click.option('--output', '-o', default='bode.csv', help='Output CSV file', type=click.Path(exists=False, dir_okay=False, writable=True))
-@click.option('--min_freq', '-m', default=100e3, help='Starting frequency')
-@click.option('--max_freq', '-x', default=25e6, help='Ending frequency')
-@click.option('--count', '-c', default=20, help='Frequency steps')
-@click.option('--frequency', '-f', default=[], type=float, help='Extra frequencies to test at', multiple=True)
-def run(siggen_id, scope_id, output, min_freq, max_freq, count, frequency):
+@click.option('--output', '-o', default='harmonics.csv', help='Output CSV file', type=click.Path(exists=False, dir_okay=False, writable=True))
+@click.option('--fundamental', '-f', default=13.56e6, help='Starting frequency')
+@click.option('--count', '-c', default=20, help='Harmonic steps')
+@click.option('--load', '-l', default=50, type=float, help='Current load')
+def run(siggen_id, scope_id, output, fundamental, count, load):
     rm = pyvisa.ResourceManager()
 
     siggen = SiglentSDG(siggen_id, rm)
@@ -34,13 +33,14 @@ def run(siggen_id, scope_id, output, min_freq, max_freq, count, frequency):
     # # siggen.reset()
 
     # List of frequencies in logarithmic space, plus all extra frequencies we requested
-    frequency_space = np.sort(np.append(np.logspace(np.log10(min_freq), np.log10(max_freq), count), frequency))
     siggen.ch1.enabled = True
     siggen.ch1.voltage_unit = 'VRMS'
 
     data = []
 
     scope.clear_measurements()
+
+    frequencies = [h * fundamental for h in range(1, count + 1)]
 
     def format_freq(freq):
         if freq is None:
@@ -54,17 +54,17 @@ def run(siggen_id, scope_id, output, min_freq, max_freq, count, frequency):
         else:
             return f'{freq/1e9:.3f} Ghz'
 
-    with click.progressbar(frequency_space, label='Performing frequency sweep', item_show_func=format_freq) as bar:
+    with click.progressbar(frequencies, label='Performing frequency sweep', item_show_func=format_freq) as bar:
         for f in bar:
             vin_target = 3.535 if f < 20e6 else 1.767
 
             pvrms1 = scope.ch1.pvrms
             pvrms2 = scope.ch2.pvrms
-            phase = scope.measure_phase(1, 2)
+            pvrms3 = scope.ch3.pvrms
 
             pvrms1.display = True
             pvrms2.display = True
-            phase.display = True
+            pvrms3.display = True
             scope.statistics = True
 
 
@@ -78,17 +78,31 @@ def run(siggen_id, scope_id, output, min_freq, max_freq, count, frequency):
 
             scope.autoscale()
             scope.reset_statistics()
+
             time.sleep(4)
-            vout = pvrms2.avg
+            vout = pvrms3.avg
             if vout > 10e10 or vout < 2e-3:
-                scope.ch2.scale = 1e-3
+                scope.ch3.scale = 0.5e-3
 
-            time.sleep(4)
+
+            time.sleep(6)
             vin = pvrms1.avg
-            vout = pvrms2.avg
-            data.append((f, vin_target, vin, vout, vout/vin, phase.avg))
+            iin = vin / load
+            vout_i = pvrms2.avg
+            vout_v = pvrms3.avg
+            gain_i = vout_i / iin
+            gain_v = vout_v / vin
+            data.append((f, vin_target, vin, vout_i, vout_v, gain_i, gain_v))
 
-    df = pd.DataFrame(data=data, columns=['Frequency', 'VinTarget', 'Vin', 'Vout', 'Gain', 'Phase'])
+    print('Current harmonics:')
+    for row in data:
+        print(row[5])
+
+    print('Voltage harmonics:')
+    for row in data:
+        print(row[6])
+
+    df = pd.DataFrame(data=data, columns=['Frequency', 'VinTarget', 'Vin', 'Vout_I', 'Vout_V', 'Gain_I', 'Gain_V'])
     df.to_csv(output)
     print(f'wrote to {output}')
 

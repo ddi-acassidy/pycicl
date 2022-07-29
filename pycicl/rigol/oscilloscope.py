@@ -8,6 +8,7 @@ import pycicl.scpi as scpi
 
 class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
     channel_count = 4
+
     class Measurement(scpi.SCPIChild):
         def __init__(self, parent: RigolMSO5, name: str, src):
             super().__init__(parent)
@@ -15,7 +16,7 @@ class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
             self.src = src
             try:
                 iter(self.src)
-            except(TypeError):
+            except TypeError:
                 self.src = (self.src,)
 
         def enable(self):
@@ -28,7 +29,7 @@ class RigolMSO5(scpi.SCPIInstrument, instrument.Oscilloscope):
         def _mk_statistic(statistic):
             return lambda obj: ",".join((statistic, obj.name, *(str(s) for s in obj.src)))
 
-        now = scpi.SCPIProperty('MEASURE:ITEM', suffix=lambda obj: ",".join((obj.name, *obj.src)), formatter=scpi.format_real, writable=False)
+        current = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('CURR'), formatter=scpi.format_real, writable=False)
         max = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MAX'), formatter=scpi.format_real, writable=False)
         min = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('MIN'), formatter=scpi.format_real, writable=False)
         avg = scpi.SCPIProperty('MEASURE:STATISTIC:ITEM', suffix=_mk_statistic('AVER'), formatter=scpi.format_real, writable=False)
